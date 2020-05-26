@@ -5,7 +5,7 @@ int frameWidth = 5 * scaleFactor;
 int tileWidth = 40 * scaleFactor;
 int tileHeight = 40 * scaleFactor;
 int pressCount = 0;
-String tileKey = "abcdefghijklmnopqrstuvwxy";
+String tileKey = "abcdefghijklmnopqrstuvwxyz";
 int tileCount = tileKey.length();
 boolean[] tilePressed = new boolean[tileCount];
 
