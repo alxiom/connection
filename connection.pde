@@ -16,6 +16,10 @@ void setup() {
 }
 
 void draw() {
+  fillTile();
+}
+
+void fillTile() {
   for (int i = 0; i < tileRow; i++) {
     for (int j = 0; j < tileCol; j++) {
       if (tilePressed[i * tileRow + j]) {
