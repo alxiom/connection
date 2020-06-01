@@ -5,6 +5,7 @@ int scaleFactor = 2;
 int monadWidth = 40 * scaleFactor;
 int monadHeight = 40 * scaleFactor;
 int frameWidth = 5 * scaleFactor;
+
 int cursorSize = 10;
 int cursorVelocity = 4;
 
@@ -12,7 +13,6 @@ String monadKeys = "abcdefghijklmnopqrstuvwxy";
 int monadCount = monadKeys.length();
 StringList activatedMonadKey = new StringList();
 boolean[] activatedMonad = new boolean[monadCount];
-
 Monad[] monads = new Monad[monadCount];
 
 void setup() {
@@ -43,7 +43,7 @@ class Monad {
   int monadIndex;
   Boolean isActivated;
   String monadKey;
-  PVector[] cursorPositions = new PVector[monadCount - 1];
+  PVector[] cursorPositions = new PVector[monadCount];
   
   Monad(PVector positionInput, int monadIndexInput) {
     position = positionInput;
@@ -62,26 +62,24 @@ class Monad {
   void createCursor() {
     int cursorCount = countActivatedMonad() - 1;
     if (isActivated && cursorCount >= 1) {
-      for (int i = 0; i < cursorCount + 1; i++) {
-        String targetMonadKey = activatedMonadKey.get(i);
-        if (!targetMonadKey.equals(monadKey)) {
-          int targetMonadIndex = monadKeys.indexOf(targetMonadKey);
-          if (targetMonadIndex >= 0) {
-            PVector targetPosition = convertCoordinate(targetMonadIndex);
-            PVector direction = PVector.sub(targetPosition, position).normalize();
-            PVector currentCursorPosition = cursorPositions[targetMonadIndex];
-            PVector updateCursorPosition = PVector.add(currentCursorPosition, direction.mult(1));
-            float distance = PVector.sub(targetPosition, updateCursorPosition).mag();
-            if (distance > 5.0) {
-              cursorPositions[targetMonadIndex] = updateCursorPosition;
-            }
-            strokeWeight(2);
-            line(position.x, position.y, updateCursorPosition.x, updateCursorPosition.y);
+      for (int i = 0; i < monadCount; i++) {
+        if (activatedMonad[i] && i != monadIndex) {
+          PVector targetPosition = convertCoordinate(i);
+          PVector direction = PVector.sub(targetPosition, position).normalize();
+          PVector currentCursorPosition = cursorPositions[i];
+          PVector updateCursorPosition = PVector.add(currentCursorPosition, direction.mult(cursorVelocity));
+          float distance = PVector.sub(targetPosition, updateCursorPosition).mag();
+          if (distance > 5.0) {
+            cursorPositions[i] = updateCursorPosition;
           }
+          strokeWeight(2);
+          line(position.x, position.y, updateCursorPosition.x, updateCursorPosition.y);
+        } else {
+          cursorPositions[i] = new PVector(position.x, position.y);
         }
       }
     } else {
-      for (int i = 0; i < monadCount - 1; i++) {
+      for (int i = 0; i < monadCount; i++) {
         cursorPositions[i] = new PVector(position.x, position.y);
       }
     }
