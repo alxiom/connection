@@ -66,16 +66,18 @@ class Monad {
         String targetMonadKey = activatedMonadKey.get(i);
         if (!targetMonadKey.equals(monadKey)) {
           int targetMonadIndex = monadKeys.indexOf(targetMonadKey);
-          PVector targetPosition = convertCoordinate(targetMonadIndex);
-          PVector direction = PVector.sub(targetPosition, position).normalize();
-          PVector currentCursorPosition = cursorPositions[targetMonadIndex];
-          PVector updateCursorPosition = PVector.add(currentCursorPosition, direction.mult(1));
-          float distance = PVector.sub(targetPosition, updateCursorPosition).mag();
-          if (distance > 5.0) {
-            cursorPositions[targetMonadIndex] = updateCursorPosition;
+          if (targetMonadIndex >= 0) {
+            PVector targetPosition = convertCoordinate(targetMonadIndex);
+            PVector direction = PVector.sub(targetPosition, position).normalize();
+            PVector currentCursorPosition = cursorPositions[targetMonadIndex];
+            PVector updateCursorPosition = PVector.add(currentCursorPosition, direction.mult(1));
+            float distance = PVector.sub(targetPosition, updateCursorPosition).mag();
+            if (distance > 5.0) {
+              cursorPositions[targetMonadIndex] = updateCursorPosition;
+            }
+            strokeWeight(2);
+            line(position.x, position.y, updateCursorPosition.x, updateCursorPosition.y);
           }
-          strokeWeight(2);
-          line(position.x, position.y, updateCursorPosition.x, updateCursorPosition.y);
         }
       }
     } else {
