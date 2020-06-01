@@ -1,109 +1,152 @@
+int rowCount = 5;
+int colCount = 5;
+
 int scaleFactor = 2;
-int tileRow = 5;
-int tileCol = 5;
+int monadWidth = 40 * scaleFactor;
+int monadHeight = 40 * scaleFactor;
 int frameWidth = 5 * scaleFactor;
-int tileWidth = 40 * scaleFactor;
-int tileHeight = 40 * scaleFactor;
-String tileKey = "abcdefghijklmnopqrstuvwxy";
-int tileCount = tileKey.length();
-StringList currentPressed = new StringList();
-boolean[] tilePressed = new boolean[tileCount];
-int[] cursorPosition = new int[tileCount];
-int cursorSize = 5;
+int cursorSize = 10;
+int cursorVelocity = 4;
+
+String monadKeys = "abcdefghijklmnopqrstuvwxy";
+int monadCount = monadKeys.length();
+StringList activatedMonadKey = new StringList();
+boolean[] activatedMonad = new boolean[monadCount];
+
+Monad[] monads = new Monad[monadCount];
 
 void setup() {
-  size(460, 460);
+  size(460, 460, P3D);
+  for (int i = 0; i < rowCount; i++) {
+    for (int j = 0; j < colCount; j++) {
+      int monadIndex = i * rowCount + j;
+      int x = frameWidth * (j + 1) + monadWidth * j + monadWidth / 2;
+      int y = frameWidth * (i + 1) + monadHeight * i + monadHeight / 2;
+      PVector position = new PVector(float(x), float(y));
+      monads[monadIndex] = new Monad(position, monadIndex);
+    }
+  }
 }
 
 void draw() {
   background(0);
-  fillTile();
-}
-
-void fillTile() {
-  for (int i = 0; i < tileRow; i++) {
-    for (int j = 0; j < tileCol; j++) {
-      int tileIndex = i * tileRow + j;
-      stroke(255);    
-      if (tilePressed[tileIndex]) {
-        fill(255, 0, 0);
-      } else {
-        fill(0);
-      }
-      
-      int x = frameWidth * (j + 1) + tileWidth * j;
-      int y = frameWidth * (i + 1) + tileWidth * i;
-      rect(x, y, tileWidth, tileHeight);
-      
-      if (tilePressed[tileIndex] && countPressedTile() >= 2) {
-        noStroke();
-        fill(255, 200, 200);
-        int cursorX;
-        int cursorY;
-        if (cursorPosition[tileIndex] == 1) {
-          cursorX = x + tileWidth / 2;
-          cursorY = y;
-        } else if (cursorPosition[i * tileRow + j] == 2) {
-          cursorX = x + tileWidth;
-          cursorY = y + tileHeight / 2;
-        } else if (cursorPosition[i * tileRow + j] == 3) {
-          cursorX = x + tileWidth / 2;
-          cursorY = y + tileHeight;
-        } else if (cursorPosition[i * tileRow + j] == 4) {
-          cursorX = x;
-          cursorY = y + tileHeight / 2;
-        } else {
-          cursorX = x + tileWidth / 2;
-          cursorY = y + tileHeight / 2;
-        }
-        ellipse(cursorX, cursorY, cursorSize, cursorSize);
-      }
-
-    }
+  for (Monad monad : monads) {
+    monad.checkActivate();
+    monad.display();
+    monad.createCursor();
   }
 }
 
+class Monad {
+  
+  PVector position;
+  int monadIndex;
+  Boolean isActivated;
+  String monadKey;
+  PVector[] cursorPositions = new PVector[monadCount - 1];
+  
+  Monad(PVector positionInput, int monadIndexInput) {
+    position = positionInput;
+    monadIndex = monadIndexInput;
+    isActivated = false;
+    monadKey = str(monadKeys.charAt(monadIndex));
+    for (int i = 0; i < monadCount - 1; i++) {
+      cursorPositions[i] = new PVector(position.x, position.y);
+    }
+  }
+  
+  void checkActivate() {
+    isActivated = activatedMonad[monadIndex];
+  }
+  
+  void createCursor() {
+    int cursorCount = countActivatedMonad() - 1;
+    if (isActivated && cursorCount >= 1) {
+      for (int i = 0; i < cursorCount + 1; i++) {
+        String targetMonadKey = activatedMonadKey.get(i);
+        if (!targetMonadKey.equals(monadKey)) {
+          int targetMonadIndex = monadKeys.indexOf(targetMonadKey);
+          PVector targetPosition = convertCoordinate(targetMonadIndex);
+          PVector direction = PVector.sub(targetPosition, position).normalize();
+          PVector currentCursorPosition = cursorPositions[targetMonadIndex];
+          PVector updateCursorPosition = PVector.add(currentCursorPosition, direction.mult(1));
+          float distance = PVector.sub(targetPosition, updateCursorPosition).mag();
+          if (distance > 5.0) {
+            cursorPositions[targetMonadIndex] = updateCursorPosition;
+          }
+          strokeWeight(2);
+          line(position.x, position.y, updateCursorPosition.x, updateCursorPosition.y);
+        }
+      }
+    } else {
+      for (int i = 0; i < monadCount - 1; i++) {
+        cursorPositions[i] = new PVector(position.x, position.y);
+      }
+    }
+  }
+  
+  void display() {
+    if (isActivated) {
+      fill(255, 0, 0);
+    } else {
+      fill(0, 0, 0);
+    }
+    stroke(255);
+    strokeWeight(1);
+    rect(position.x - monadWidth / 2, position.y - monadHeight / 2, monadWidth, monadHeight);
+  }
+  
+}
+
 void keyPressed() {
-  if (!currentPressed.hasValue(str(key))) {
-    setTilePressed(true);
-    currentPressed.append(str(key));
+  if (monadKeys.indexOf(key) >= 0) {
+    if (!activatedMonadKey.hasValue(str(key))) {
+      setMonadStatus(true);
+      activatedMonadKey.append(str(key));
+    }
   }
 }
 
 void keyReleased() {
-  setTilePressed(false);
-  int popIndex = findIndex(currentPressed, str(key));
-  currentPressed.remove(popIndex);
+  if (monadKeys.indexOf(key) >= 0) {
+    setMonadStatus(false);
+    int popKeyIndex = findIndex(str(key), activatedMonadKey);
+    activatedMonadKey.remove(popKeyIndex);
+  }
 }
 
-void setTilePressed(boolean isPressed) {
+void setMonadStatus(boolean isActivated) {
   String keyString = str(key);
-  int keyIndex = tileKey.indexOf(keyString);
+  int keyIndex = monadKeys.indexOf(keyString);
   if (keyIndex >= 0) {
-    tilePressed[keyIndex] = isPressed;
-    if (isPressed) {
-      cursorPosition[keyIndex] = int(random(4)) + 1;
-    } else {
-      cursorPosition[keyIndex] = 0;
-    }
+    activatedMonad[keyIndex] = isActivated;
   }
 }
 
-int countPressedTile() {
-  int countPressed = 0;
-  for (int i = 0; i < tileCount; i++) {
-    if (tilePressed[i]) {
-      countPressed += 1;
+int countActivatedMonad() {
+  int count = 0;
+  for (int i = 0; i < monadCount; i++) {
+    if (activatedMonad[i]) {
+      count += 1;
     }
   }
-  return countPressed;
+  return count;
 }
 
-int findIndex(StringList keyList, String keyString) {
-  for (int i = 0; i < keyList.size(); i++) {
-    if (keyList.get(i).equals(keyString)) {
+int findIndex(String keyString, StringList targetList) {
+  for (int i = 0; i < targetList.size(); i++) {
+    if (targetList.get(i).equals(keyString)) {
       return i;
     }
   }
   return -1;
+}
+
+PVector convertCoordinate(int index) {
+  int j = index % rowCount;
+  int i = index / rowCount;
+  int x = frameWidth * (j + 1) + monadWidth * j + monadWidth / 2;
+  int y = frameWidth * (i + 1) + monadHeight * i + monadHeight / 2;
+  PVector xy = new PVector(float(x), float(y));
+  return xy;
 }
