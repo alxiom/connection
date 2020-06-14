@@ -10,66 +10,26 @@ int monadCount = monadKeys.length();
 
 StringList activatedMonadKey = new StringList();
 boolean[] activatedMonad = new boolean[monadCount];
+
 Monad[] monads = new Monad[monadCount];
+boolean[][][] intersections = new boolean[rowCount + 1][colCount + 1][4];
+int[] verticalDirections = {0, 2};
+int[] horizontalDirections = {1, 3};
 
 int cursorMemory = 100;
 float cursorVelocity = 30.0;
-int[][][] cornerDirections = new int[rowCount + 1][colCount + 1][4];
 
 void setup() {
   size(460, 460);
   background(0);
   frameRate(30);
-  
-  // init monad
-  for (int i = 0; i < rowCount; i++) {
-    for (int j = 0; j < colCount; j++) {
-      int id = i * rowCount + j;
-      int x = frameWidth * (j + 1) + monadSize * j + monadSize / 2;
-      int y = frameWidth * (i + 1) + monadSize * i + monadSize / 2;
-      PVector position = new PVector(float(x), float(y));
-      monads[id] = new Monad(id, position);
-    }
-  }
-  
-  // init cursor direction
-  for (int i = 0; i < rowCount + 1; i++) {
-    for (int j = 0; j < colCount + 1; j++) {
-      StringList directionList = new StringList("u", "l", "d", "r");
-      if (i == 0) {
-        int upIndex = findIndex("u", directionList);
-        directionList.remove(upIndex);
-      } else if (i == rowCount) {
-        int downIndex = findIndex("d", directionList);
-        directionList.remove(downIndex);
-      }
-  
-      if (j == 0) {
-        int leftIndex = findIndex("l", directionList);
-        directionList.remove(leftIndex);
-      } else if (j == colCount) {
-        int rightIndex = findIndex("r", directionList);
-        directionList.remove(rightIndex);
-      }
-  
-      for (int k = 0; k < directionList.size(); k++) {
-        if (directionList.get(k).equals("u")) {
-          cornerDirections[i][j][k] = 1;
-        } else if (directionList.get(k).equals("l")) {
-          cornerDirections[i][j][k] = 2;
-        } else if (directionList.get(k).equals("d")) {
-          cornerDirections[i][j][k] = 3;
-        } else {
-          cornerDirections[i][j][k] = 4;
-        }
-      }
-    }
-  }
+  initMonad();
+  initIntersections();  
 }
 
 void draw() {
-  fill(0, 6);
   noStroke();
+  fill(0, 6);
   rect(0, 0, width, height);
   for (Monad monad : monads) {
     monad.checkActivate();
@@ -85,13 +45,13 @@ class Monad {
   Boolean isActivated;
   Boolean wasActivated;
   String monadKey;
+  
+  color monadColor;
+  color cursorColor;
 
-  int[] cursorDirections = new int[monadCount];
+  int[] currentCursorDirections = new int[monadCount];
+  PVector[] currentCursorPositions = new PVector[monadCount];
   float[][][] cursorHistory = new float[monadCount][cursorMemory][2];
-  PVector[] cursorPositions = new PVector[monadCount];
-  //PVector[] initialCursorPositions = new PVector[monadCount];
-  int[] verticalDirections = {1, 3};
-  int[] horizontalDirections = {2, 4};
 
   Monad(int idInput, PVector positionInput) {
     position = positionInput;
@@ -99,6 +59,8 @@ class Monad {
     isActivated = false;
     wasActivated = false;
     monadKey = str(monadKeys.charAt(id));
+    monadColor = color(255 - id * 10, 0, id * 10 + 5, 20);
+    cursorColor = color(255 - id * 10, 128, id * 10 + 5);
   }
 
   void checkActivate() {
@@ -108,51 +70,42 @@ class Monad {
 
   void displayMonad() {
     if (isActivated) {
-      fill(255, 0, 0, 20);
+      fill(monadColor);
     } else {
-      fill(0, 0, 0);
+      fill(0);
     }
     stroke(255);
     strokeWeight(1);
-    rect(position.x - monadSize / 2, position.y - monadSize / 2, monadSize, monadSize);
+    rect(
+      position.x - monadSize / 2, 
+      position.y - monadSize / 2, 
+      monadSize, 
+      monadSize
+    );
   }
 
   void displayCursor() {
     if (isActivated) {
       int cursorCount = countActivatedMonad() - 1;
       if (cursorCount >= 1) {
-        for (int i = 0; i < monadCount; i++) {
+        for (int targetIndex = 0; targetIndex < monadCount; targetIndex++) {
           if (!wasActivated) {
-            initializeCursor(i);
+            initializeCursor(targetIndex);
           }
-          if (i != id && activatedMonad[i]) {
-            PVector targetPosition = convertPosition(i);
-            line(cursorHistory[i][cursorMemory - 1][0], cursorHistory[i][cursorMemory - 1][1], cursorHistory[i][cursorMemory - 2][0], cursorHistory[i][cursorMemory - 2][1]);
-            float distance = PVector.dist(targetPosition, cursorPositions[i]);
+          if (targetIndex != id && activatedMonad[targetIndex]) {
+            line(
+              cursorHistory[targetIndex][cursorMemory - 1][0], 
+              cursorHistory[targetIndex][cursorMemory - 1][1], 
+              cursorHistory[targetIndex][cursorMemory - 2][0], 
+              cursorHistory[targetIndex][cursorMemory - 2][1]
+            );
+            PVector targetPosition = convertPosition(targetIndex);
+            PVector currentPosition = currentCursorPositions[targetIndex];
+            float distance = PVector.dist(targetPosition, currentPosition);
             if (distance >= monadSize / 2.0 + frameWidth) {
-              displayConnection(i);
+              displayConnection(targetIndex, targetPosition);
             } else {
-              
-              //draw history
-              stroke(255, 0, 0);
-              strokeWeight(2);
-              float[] lastCursor = new float[2];
-              for (int j = 0; j < cursorMemory - 1; j ++) {
-                
-                float[] currentCursor = cursorHistory[i][j];
-                float[] nextCursor = cursorHistory[i][j + 1];
-                
-                if (currentCursor[0] > 0.0 && currentCursor[1] > 0.0 && nextCursor[0] > 0.0 && nextCursor[1] > 0.0) {
-                  
-                  line(currentCursor[0], currentCursor[1], nextCursor[0], nextCursor[1]);
-                }
-                lastCursor = nextCursor;
-              }
-              float lastX = (targetPosition.x - lastCursor[0]) * frameWidth / float(monadSize + frameWidth) + lastCursor[0];
-              float lastY = (targetPosition.y - lastCursor[1]) * frameWidth / float(monadSize + frameWidth) + lastCursor[1];
-              
-              line(lastCursor[0], lastCursor[1], lastX, lastY);
-              
+              displayCursorHistory(targetIndex, targetPosition);
             }
           }
         }
@@ -168,100 +121,177 @@ class Monad {
     }
   }
   
-  void displayConnection(int i) {
-    
-    PVector currentCursorPosition = cursorPositions[i];
+  void displayConnection(int targetIndex, PVector targetPosition) {
+    PVector currentCursorPosition = currentCursorPositions[targetIndex];
+    int currentCursorDirection = currentCursorDirections[targetIndex];
     float updateX = currentCursorPosition.x;
     float updateY = currentCursorPosition.y;
-    if (cursorDirections[i] == 1) {
+    if (currentCursorDirection == 0) {
       updateY -= cursorVelocity;
-    } else if (cursorDirections[i] == 2) {
+    } else if (currentCursorDirection == 1) {
       updateX -= cursorVelocity;
-    } else if (cursorDirections[i] == 3) {
+    } else if (currentCursorDirection == 2) {
       updateY += cursorVelocity;
     } else {
       updateX += cursorVelocity;
     }
     PVector nextCursorPosition = new PVector(updateX, updateY);
-    int[] cornerIndex = convertConerIndex(nextCursorPosition);
-    int cornerRow = cornerIndex[0];
-    int cornerCol = cornerIndex[1];
-    if (cornerRow >= 0 && cornerCol >= 0) {
-      nextCursorPosition = convertCornerPosition(cornerIndex);
-      IntList candidateList = new IntList();
+    int[] intersectionIndex = findIntersectionIndex(nextCursorPosition);
+    int intersectionRow = intersectionIndex[0];
+    int intersectionCol = intersectionIndex[1];
+    if (intersectionRow >= 0 && intersectionCol >= 0) {
+      nextCursorPosition = convertIntersectionPosition(intersectionIndex);
+      IntList candidates = new IntList();
       for (int k = 0; k < 4; k++) {
-        int possibleDirection = cornerDirections[cornerRow][cornerCol][k];
-        if (possibleDirection > 0 && possibleDirection != (cursorDirections[i] + 1) % 4 + 1) {
-          PVector targetPosition = convertPosition(i);
-          
-          if (possibleDirection == 1 && targetPosition.y < nextCursorPosition.y) {
-            candidateList.append(possibleDirection);
+        if (intersections[intersectionRow][intersectionCol][k]) {
+          int reverseDirection = (currentCursorDirection + 2) % 4;
+          if (k != reverseDirection) {
+            if (k == 0 && targetPosition.y < nextCursorPosition.y) {
+              candidates.append(k);
+            }
+            if (k == 1 && targetPosition.x < nextCursorPosition.x) {
+              candidates.append(k);
+            }
+            if (k == 2 && targetPosition.y >= nextCursorPosition.y) {
+              candidates.append(k);
+            }
+            if (k == 3 && targetPosition.x >= nextCursorPosition.x) {
+              candidates.append(k);
+            }
           }
-          if (possibleDirection == 2 && targetPosition.x < nextCursorPosition.x) {
-            candidateList.append(possibleDirection);
-          }
-          if (possibleDirection == 3 && targetPosition.y >= nextCursorPosition.y) {
-            candidateList.append(possibleDirection);
-          }
-          if (possibleDirection == 4 && targetPosition.x >= nextCursorPosition.x) {
-            candidateList.append(possibleDirection);
-          } 
         }
       }
-      int[] candidates = candidateList.array();
-      cursorDirections[i] = candidates[int(random(candidateList.size()))];
+      int candidate = candidates.get(int(random(candidates.size())));
+      currentCursorDirections[targetIndex] = candidate;
     }
     strokeWeight(2);
-    stroke(255, 128, 128);
-    line(currentCursorPosition.x, currentCursorPosition.y, nextCursorPosition.x, nextCursorPosition.y);
-    cursorPositions[i] = nextCursorPosition;
+    stroke(255);
+    line(
+      currentCursorPosition.x, 
+      currentCursorPosition.y, 
+      nextCursorPosition.x, 
+      nextCursorPosition.y
+    );
+    currentCursorPositions[targetIndex] = nextCursorPosition;
     
+    // shift history to left
     for (int j = 1; j < cursorMemory; j++) {
-      cursorHistory[i][j - 1][0] = cursorHistory[i][j][0];
-      cursorHistory[i][j - 1][1] = cursorHistory[i][j][1];
+      cursorHistory[targetIndex][j - 1][0] = cursorHistory[targetIndex][j][0];
+      cursorHistory[targetIndex][j - 1][1] = cursorHistory[targetIndex][j][1];
     }
-    cursorHistory[i][cursorMemory - 1][0] = nextCursorPosition.x;
-    cursorHistory[i][cursorMemory - 1][1] = nextCursorPosition.y;
+    cursorHistory[targetIndex][cursorMemory - 1][0] = nextCursorPosition.x;
+    cursorHistory[targetIndex][cursorMemory - 1][1] = nextCursorPosition.y;
+  }
+  
+  void displayCursorHistory(int targetIndex, PVector targetPosition) {
+    stroke(cursorColor);
+    strokeWeight(2);
+    float[] lastCursor = new float[2];
+    for (int j = 0; j < cursorMemory - 1; j ++) {
+      float[] currentCursor = cursorHistory[targetIndex][j];
+      if (currentCursor[0] > 0.0 && currentCursor[1] > 0.0) {
+        float[] nextCursor = cursorHistory[targetIndex][j + 1];
+        if (nextCursor[0] > 0.0 && nextCursor[1] > 0.0) {
+          line(
+            currentCursor[0], 
+            currentCursor[1], 
+            nextCursor[0], 
+            nextCursor[1]
+          );
+          lastCursor = nextCursor;
+        }
+      }
+    }
+    
+    float frameWidthRatio = frameWidth / float(monadSize + frameWidth);
+    line(
+      lastCursor[0], 
+      lastCursor[1], 
+      (targetPosition.x - lastCursor[0]) * frameWidthRatio + lastCursor[0],
+      (targetPosition.y - lastCursor[1]) * frameWidthRatio + lastCursor[1]
+    );
   }
 
-  void initializeCursor(int targetMonadIndex) {
-    int randomPosition = int(random(1, 5));
+  void initializeCursor(int targetIndex) {
+    int randomEdge = int(random(0, 4));
     int randomDirection = int(random(2));
-    int directionIndex;
-    float x = position.x;
-    float y = position.y;
-    float xSecond = position.x;
-    float ySecond = position.y;
-    if (randomPosition == 1) {
-      y -= monadSize / 2.0;
-      ySecond -= (monadSize + frameWidth) / 2.0;
-      directionIndex = horizontalDirections[randomDirection];
-    } else if (randomPosition == 2) {
-      x -= monadSize / 2.0;
-      xSecond -= (monadSize + frameWidth) / 2.0;
-      directionIndex = verticalDirections[randomDirection];
-    } else if (randomPosition == 3) {
-      y += monadSize / 2.0;
-      ySecond += (monadSize + frameWidth) / 2.0;
-      directionIndex = horizontalDirections[randomDirection];
+    int initialDirection;
+    float primaryX = position.x;
+    float primaryY = position.y;
+    float secondaryX = position.x;
+    float secondaryY = position.y;
+    if (randomEdge == 0) {
+      primaryY -= monadSize / 2.0;
+      secondaryY -= (monadSize + frameWidth) / 2.0;
+      initialDirection = horizontalDirections[randomDirection];
+    } else if (randomEdge == 1) {
+      primaryX -= monadSize / 2.0;
+      secondaryX -= (monadSize + frameWidth) / 2.0;
+      initialDirection = verticalDirections[randomDirection];
+    } else if (randomEdge == 2) {
+      primaryY += monadSize / 2.0;
+      secondaryY += (monadSize + frameWidth) / 2.0;
+      initialDirection = horizontalDirections[randomDirection];
     } else {
-      x += monadSize / 2.0;
-      xSecond += (monadSize + frameWidth) / 2.0;
-      directionIndex = verticalDirections[randomDirection];
+      primaryX += monadSize / 2.0;
+      secondaryX += (monadSize + frameWidth) / 2.0;
+      initialDirection = verticalDirections[randomDirection];
     }
-    //initialCursorPositions[targetMonadIndex] = new PVector(x, y);
-    cursorPositions[targetMonadIndex] = new PVector(xSecond, ySecond);
-    cursorDirections[targetMonadIndex] = directionIndex;
               
-    cursorHistory[targetMonadIndex] = new float[cursorMemory][2];
-    
-    cursorHistory[targetMonadIndex][cursorMemory - 2][0] = x;
-    cursorHistory[targetMonadIndex][cursorMemory - 2][1] = y;
-    
-    cursorHistory[targetMonadIndex][cursorMemory - 1][0] = xSecond;
-    cursorHistory[targetMonadIndex][cursorMemory - 1][1] = ySecond;
-    
+    cursorHistory[targetIndex] = new float[cursorMemory][2];    
+    cursorHistory[targetIndex][cursorMemory - 2][0] = primaryX;
+    cursorHistory[targetIndex][cursorMemory - 2][1] = primaryY;
+    cursorHistory[targetIndex][cursorMemory - 1][0] = secondaryX;
+    cursorHistory[targetIndex][cursorMemory - 1][1] = secondaryY;
+    currentCursorPositions[targetIndex] = new PVector(secondaryX, secondaryY);
+    currentCursorDirections[targetIndex] = initialDirection;
   }
+}
+
+
+void initMonad() {
+  for (int i = 0; i < rowCount; i++) {
+    for (int j = 0; j < colCount; j++) {
+      int id = i * rowCount + j;
+      int x = frameWidth * (j + 1) + monadSize * j + monadSize / 2;
+      int y = frameWidth * (i + 1) + monadSize * i + monadSize / 2;
+      PVector position = new PVector(float(x), float(y));
+      monads[id] = new Monad(id, position);
+    }
+  }
+}
+
+void initIntersections() {
+  for (int i = 0; i < rowCount + 1; i++) {
+    for (int j = 0; j < colCount + 1; j++) {
+      if (i == 0) {
+        intersections[i][j][2] = true;
+      } else if (i == rowCount) {
+        intersections[i][j][0] = true;
+      } else {
+        intersections[i][j][0] = true;
+        intersections[i][j][2] = true;
+      }
+  
+      if (j == 0) {
+        intersections[i][j][3] = true;
+      } else if (j == colCount) {
+        intersections[i][j][1] = true;
+      } else {
+        intersections[i][j][1] = true;
+        intersections[i][j][3] = true;
+      }
+    }
+  }
+}
+
+int findIndex(String keyString, StringList targetList) {
+  for (int i = 0; i < targetList.size(); i++) {
+    if (targetList.get(i).equals(keyString)) {
+      return i;
+    }
+  }
+  return -1;
 }
 
 void keyPressed() {
@@ -289,15 +319,6 @@ void setMonadStatus(boolean isActivated) {
   }
 }
 
-int findIndex(String keyString, StringList targetList) {
-  for (int i = 0; i < targetList.size(); i++) {
-    if (targetList.get(i).equals(keyString)) {
-      return i;
-    }
-  }
-  return -1;
-}
-
 int countActivatedMonad() {
   int count = 0;
   for (int i = 0; i < monadCount; i++) {
@@ -317,7 +338,14 @@ PVector convertPosition(int index) {
   return xy;
 }
 
-int[] convertConerIndex(PVector cursorPosition) {
+PVector convertIntersectionPosition(int[] intersectionIndex) {
+  float x = frameWidth / 2.0 + (monadSize + frameWidth) * intersectionIndex[1];
+  float y = frameWidth / 2.0 + (monadSize + frameWidth) * intersectionIndex[0];
+  PVector xy = new PVector(x, y);
+  return xy;
+}
+
+int[] findIntersectionIndex(PVector cursorPosition) {
   int[] cornerIndex = {-1, -1};
   for (int i = 0; i < rowCount + 1; i++) {
     float cornerY = frameWidth / 2.0 + (monadSize + frameWidth) * i;
@@ -339,11 +367,4 @@ int[] convertConerIndex(PVector cursorPosition) {
     }
   }
   return cornerIndex;
-}
-
-PVector convertCornerPosition(int[] cornerIndex) {
-  float x = frameWidth / 2.0 + (monadSize + frameWidth) * cornerIndex[1];
-  float y = frameWidth / 2.0 + (monadSize + frameWidth) * cornerIndex[0];
-  PVector xy = new PVector(x, y);
-  return xy;
 }
