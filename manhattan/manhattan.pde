@@ -164,8 +164,9 @@ class Monad {
       int candidate = candidates.get(int(random(candidates.size())));
       currentCursorDirections[targetIndex] = candidate;
     }
-    strokeWeight(2);
-    stroke(255);
+    stroke(cursorColor);
+    strokeCap(ROUND);
+    strokeWeight(2 * scaleFactor);
     line(
       currentCursorPosition.x, 
       currentCursorPosition.y, 
@@ -185,7 +186,8 @@ class Monad {
   
   void displayCursorHistory(int targetIndex, PVector targetPosition) {
     stroke(cursorColor);
-    strokeWeight(2);
+    strokeCap(ROUND);
+    strokeWeight(2 * scaleFactor);
     float[] lastCursor = new float[2];
     for (int j = 0; j < cursorMemory - 1; j ++) {
       float[] currentCursor = cursorHistory[targetIndex][j];
