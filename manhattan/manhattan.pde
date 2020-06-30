@@ -60,7 +60,7 @@ class Monad {
     wasActivated = false;
     monadKey = str(monadKeys.charAt(id));
     monadColor = color(255 - id * 10, 0, id * 10 + 5, 20);
-    cursorColor = color(255 - id * 10, 128, id * 10 + 5);
+    cursorColor = color(random(255), random(255), random(255));
   }
 
   void checkActivate() {
@@ -240,6 +240,7 @@ class Monad {
       initialDirection = verticalDirections[randomDirection];
     }
               
+    cursorColor = color(random(255), random(255), random(255));
     cursorHistory[targetIndex] = new float[cursorMemory][2];    
     cursorHistory[targetIndex][cursorMemory - 2][0] = primaryX;
     cursorHistory[targetIndex][cursorMemory - 2][1] = primaryY;
