@@ -1,3 +1,5 @@
+import codeanticode.syphon.*;
+
 int rowCount = 5;
 int colCount = 5;
 
@@ -19,20 +21,27 @@ int[] horizontalDirections = {1, 3};
 int cursorMemory = 100;
 float cursorVelocity = 30.0;
 
+PGraphics canvas;
+SyphonServer server;
+
 void setup() {
-  size(460, 460);
+  size(460, 460, P3D);
   background(0);
   frameRate(30);
+  
+  canvas = createGraphics(460, 460, P3D);
+  server = new SyphonServer(this, "Processing Syphon");
+  
   initMonad();
   initIntersections();
-  //strokeJoin(ROUND);
 }
 
 void draw() {
-  stroke(0, 6);
-  strokeWeight(frameWidth);
+  canvas.beginDraw();
+  canvas.stroke(0, 6);
+  canvas.strokeWeight(frameWidth);
   for (int i = 0; i <= rowCount; i++) {
-    line(
+    canvas.line(
       0, 
       i * (monadSize + frameWidth) + frameWidth / 2, 
       width, 
@@ -41,7 +50,7 @@ void draw() {
   }
   
   for (int i = 0; i <= colCount; i++) {
-    line( 
+    canvas.line( 
       i * (monadSize + frameWidth) + frameWidth / 2,
       0,
       i * (monadSize + frameWidth) + frameWidth / 2,
@@ -55,6 +64,10 @@ void draw() {
     monad.displayMonad();
     monad.displayCursor();
   }
+  
+  canvas.endDraw();
+  image(canvas, 0, 0);
+  server.sendImage(canvas);
 }
 
 class Monad {
@@ -89,13 +102,13 @@ class Monad {
 
   void displayMonad() {
     if (isActivated) {
-      fill(monadColor);
+      canvas.fill(monadColor);
     } else {
-      fill(0);
+      canvas.fill(0);
     }
-    stroke(255);
-    strokeWeight(1);
-    rect(
+    canvas.stroke(255);
+    canvas.strokeWeight(1);
+    canvas.rect(
       position.x - monadSize / 2, 
       position.y - monadSize / 2, 
       monadSize, 
@@ -112,7 +125,7 @@ class Monad {
             initializeCursor(targetIndex);
           }
           if (targetIndex != id && activatedMonad[targetIndex]) {
-            line(
+            canvas.line(
               cursorHistory[targetIndex][cursorMemory - 1][0], 
               cursorHistory[targetIndex][cursorMemory - 1][1], 
               cursorHistory[targetIndex][cursorMemory - 2][0], 
@@ -183,10 +196,10 @@ class Monad {
       int candidate = candidates.get(int(random(candidates.size())));
       currentCursorDirections[targetIndex] = candidate;
     }
-    stroke(cursorColor);
-    strokeCap(ROUND);
-    strokeWeight(2 * scaleFactor);
-    line(
+    canvas.stroke(cursorColor);
+    canvas.strokeCap(ROUND);
+    canvas.strokeWeight(2 * scaleFactor);
+    canvas.line(
       currentCursorPosition.x, 
       currentCursorPosition.y, 
       nextCursorPosition.x, 
@@ -204,16 +217,16 @@ class Monad {
   }
   
   void displayCursorHistory(int targetIndex, PVector targetPosition) {
-    stroke(cursorColor);
-    strokeCap(ROUND);
-    strokeWeight(2 * scaleFactor);
+    canvas.stroke(cursorColor);
+    canvas.strokeCap(ROUND);
+    canvas.strokeWeight(2 * scaleFactor);
     float[] lastCursor = new float[2];
     for (int j = 0; j < cursorMemory - 1; j ++) {
       float[] currentCursor = cursorHistory[targetIndex][j];
       if (currentCursor[0] > 0.0 && currentCursor[1] > 0.0) {
         float[] nextCursor = cursorHistory[targetIndex][j + 1];
         if (nextCursor[0] > 0.0 && nextCursor[1] > 0.0) {
-          line(
+          canvas.line(
             currentCursor[0], 
             currentCursor[1], 
             nextCursor[0], 
@@ -225,7 +238,7 @@ class Monad {
     }
     
     float frameWidthRatio = frameWidth / float(monadSize + frameWidth);
-    line(
+    canvas.line(
       lastCursor[0], 
       lastCursor[1], 
       (targetPosition.x - lastCursor[0]) * frameWidthRatio + lastCursor[0],
@@ -326,9 +339,6 @@ void keyPressed() {
 }
 
 void keyReleased() {
-  // overlap frame
-
-  
   if (monadKeys.indexOf(key) >= 0) {
     setMonadStatus(false);
     int popKeyIndex = findIndex(str(key), activatedMonadKey);
