@@ -24,13 +24,32 @@ void setup() {
   background(0);
   frameRate(30);
   initMonad();
-  initIntersections();  
+  initIntersections();
+  //strokeJoin(ROUND);
 }
 
 void draw() {
-  noStroke();
-  fill(0, 6);
-  rect(0, 0, width, height);
+  stroke(0, 6);
+  strokeWeight(frameWidth);
+  for (int i = 0; i <= rowCount; i++) {
+    line(
+      0, 
+      i * (monadSize + frameWidth) + frameWidth / 2, 
+      width, 
+      i * (monadSize + frameWidth) + frameWidth / 2
+    );
+  }
+  
+  for (int i = 0; i <= colCount; i++) {
+    line( 
+      i * (monadSize + frameWidth) + frameWidth / 2,
+      0,
+      i * (monadSize + frameWidth) + frameWidth / 2,
+      height
+    );
+  }
+  
+  
   for (Monad monad : monads) {
     monad.checkActivate();
     monad.displayMonad();
@@ -60,7 +79,7 @@ class Monad {
     wasActivated = false;
     monadKey = str(monadKeys.charAt(id));
     monadColor = color(255 - id * 10, 0, id * 10 + 5, 20);
-    cursorColor = color(random(255), random(255), random(255));
+    cursorColor = color(random(100, 255), random(100, 255), random(100, 255));
   }
 
   void checkActivate() {
@@ -240,7 +259,7 @@ class Monad {
       initialDirection = verticalDirections[randomDirection];
     }
               
-    cursorColor = color(random(255), random(255), random(255));
+    cursorColor = color(random(100, 255), random(100, 255), random(100, 255));
     cursorHistory[targetIndex] = new float[cursorMemory][2];    
     cursorHistory[targetIndex][cursorMemory - 2][0] = primaryX;
     cursorHistory[targetIndex][cursorMemory - 2][1] = primaryY;
@@ -307,6 +326,9 @@ void keyPressed() {
 }
 
 void keyReleased() {
+  // overlap frame
+
+  
   if (monadKeys.indexOf(key) >= 0) {
     setMonadStatus(false);
     int popKeyIndex = findIndex(str(key), activatedMonadKey);
