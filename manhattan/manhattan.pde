@@ -3,9 +3,9 @@ import codeanticode.syphon.*;
 int rowCount = 5;
 int colCount = 5;
 
-int scaleFactor = 2;
+int scaleFactor = 4;
 int monadSize = 40 * scaleFactor;
-int frameWidth = 5 * scaleFactor;
+int frameWidth = 6 * scaleFactor;
 
 String monadKeys = "abcdefghijklmnopqrstuvwxy";
 int monadCount = monadKeys.length();
@@ -53,11 +53,11 @@ PGraphics canvas;
 SyphonServer server;
 
 void setup() {
-  size(460, 460, P3D);
+  size(920, 920, P3D);
   background(0);
   frameRate(30);
-  
-  canvas = createGraphics(460, 460, P3D);
+    
+  canvas = createGraphics(920, 920, P3D);
   server = new SyphonServer(this, "Processing Syphon");
   
   initMonad();
@@ -71,17 +71,17 @@ void draw() {
   for (int i = 0; i <= rowCount; i++) {
     canvas.line(
       0, 
-      i * (monadSize + frameWidth) + frameWidth / 2, 
+      i * (monadSize + frameWidth),
       width, 
-      i * (monadSize + frameWidth) + frameWidth / 2
+      i * (monadSize + frameWidth)
     );
   }
   
   for (int i = 0; i <= colCount; i++) {
     canvas.line( 
-      i * (monadSize + frameWidth) + frameWidth / 2,
+      i * (monadSize + frameWidth),
       0,
-      i * (monadSize + frameWidth) + frameWidth / 2,
+      i * (monadSize + frameWidth),
       height
     );
   }
@@ -316,9 +316,9 @@ void initMonad() {
   for (int i = 0; i < rowCount; i++) {
     for (int j = 0; j < colCount; j++) {
       int id = i * rowCount + j;
-      int x = frameWidth * (j + 1) + monadSize * j + monadSize / 2;
-      int y = frameWidth * (i + 1) + monadSize * i + monadSize / 2;
-      PVector position = new PVector(float(x), float(y));
+      float x = frameWidth * (j + 0.5) + monadSize * j + monadSize / 2;
+      float y = frameWidth * (i + 0.5) + monadSize * i + monadSize / 2;
+      PVector position = new PVector(x, y);
       monads[id] = new Monad(id, position);
     }
   }
@@ -395,15 +395,15 @@ int countActivatedMonad() {
 PVector convertPosition(int index) {
   int j = index % rowCount;
   int i = index / rowCount;
-  int x = frameWidth * (j + 1) + monadSize * j + monadSize / 2;
-  int y = frameWidth * (i + 1) + monadSize * i + monadSize / 2;
-  PVector xy = new PVector(float(x), float(y));
+  float x = frameWidth * (j + 0.5) + monadSize * j + monadSize / 2;
+  float y = frameWidth * (i + 0.5) + monadSize * i + monadSize / 2;
+  PVector xy = new PVector(x, y);
   return xy;
 }
 
 PVector convertIntersectionPosition(int[] intersectionIndex) {
-  float x = frameWidth / 2.0 + (monadSize + frameWidth) * intersectionIndex[1];
-  float y = frameWidth / 2.0 + (monadSize + frameWidth) * intersectionIndex[0];
+  float x = (monadSize + frameWidth) * intersectionIndex[1];
+  float y = (monadSize + frameWidth) * intersectionIndex[0];
   PVector xy = new PVector(x, y);
   return xy;
 }
@@ -411,13 +411,13 @@ PVector convertIntersectionPosition(int[] intersectionIndex) {
 int[] findIntersectionIndex(PVector cursorPosition) {
   int[] cornerIndex = {-1, -1};
   for (int i = 0; i < rowCount + 1; i++) {
-    float cornerY = frameWidth / 2.0 + (monadSize + frameWidth) * i;
+    float cornerY = (monadSize + frameWidth) * i;
     float distanceY = abs(cornerY - cursorPosition.y);
     
     if (distanceY < cursorVelocity) {
       
       for (int j = 0; j < colCount + 1; j++) {
-        float cornerX = frameWidth / 2.0 + (monadSize + frameWidth) * j;
+        float cornerX = (monadSize + frameWidth) * j;
         float distanceX = abs(cornerX - cursorPosition.x);
         if (distanceX < cursorVelocity) {
           
