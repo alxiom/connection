@@ -1,7 +1,7 @@
 import codeanticode.syphon.*;
 import processing.sound.*;
 
-boolean calibration = true;
+boolean calibration = false;
 
 PGraphics canvas;
 SyphonServer server;
@@ -76,6 +76,7 @@ void setup() {
 void draw() {
   canvas.beginDraw();
   canvas.noFill();
+  //canvas.tint(0, 100);
   displayFrame();
   for (Tile tile : tileArray) {
     tile.checkActivate();
@@ -97,6 +98,7 @@ class Tile {
   color tileColor;
   color cursorColor;
 
+  boolean[] connection = new boolean[tiles];
   int[] cursorDirections = new int[tiles];
   PVector[] cursorXYs = new PVector[tiles];
   float[][][] cursorHistory = new float[tiles][cursorMemory][2];
@@ -109,6 +111,7 @@ class Tile {
     tileColor = tileColors[id];
     initializeCursorColor();
     for (int i = 0; i < tiles; i++) {
+      connection[i] = false;
       for (int j = 0; j < cursorMemory; j++) {
         cursorHistory[i][j][0] = -float(width);
         cursorHistory[i][j][1] = -float(height);
@@ -151,37 +154,15 @@ class Tile {
       if (cursorCount >= 1) {
         for (int t = 0; t < tiles; t++) {
           if (t != id && activeTile[t]) {
-            PVector targetXY = convertXY(t);
-            PVector currentXY = cursorXYs[t];
-            float distance = PVector.dist(targetXY, currentXY);
-            if (distance > tileSize / 2 + frameWidth / 2 + 1.0) {
-              moveCursor(t, targetXY);
-            } else {
-              float lossX = currentXY.x - targetXY.x;
-              float lossY = currentXY.y - targetXY.y;
-              float lastX = currentXY.x;
-              float lastY = currentXY.y;
-              if (abs(lossX) > abs(lossY)) {
-                if (lossX > 0) {
-                  lastX -= frameWidth / 2;
-                } else {
-                  lastX += frameWidth / 2;
-                }
+            if (!connection[t]) {
+              PVector targetXY = convertXY(t);
+              PVector currentXY = cursorXYs[t];
+              float distance = PVector.dist(targetXY, currentXY);
+              if (distance > tileSize / 2 + frameWidth / 2 + 1.0) {
+                moveCursor(t, targetXY, false);
               } else {
-                if (lossY > 0){
-                  lastY -= frameWidth / 2;
-                } else {
-                  lastY += frameWidth / 2;
-                }
+                moveCursor(t, targetXY, true);
               }
-              PVector lastCursor = new PVector(lastX, lastY);
-              
-              for (int j = 1; j < cursorMemory; j++) {
-                cursorHistory[t][j - 1][0] = cursorHistory[t][j][0];
-                cursorHistory[t][j - 1][1] = cursorHistory[t][j][1];
-              }
-              cursorHistory[t][cursorMemory - 1][0] = lastCursor.x;
-              cursorHistory[t][cursorMemory - 1][1] = lastCursor.y;
             }
             drawCursorHistory(t);
           } else {
@@ -202,49 +183,72 @@ class Tile {
     }
   }
   
-  void moveCursor(int t, PVector targetXY) {
+  void moveCursor(int t, PVector targetXY, boolean lastMove) {
     PVector cursorXY = cursorXYs[t];
-    int cursorDirection = cursorDirections[t];
-    float updateX = cursorXY.x;
-    float updateY = cursorXY.y;
-    if (cursorDirection == 0) {
-      updateY -= cursorVelocity;
-    } else if (cursorDirection == 1) {
-      updateX -= cursorVelocity;
-    } else if (cursorDirection == 2) {
-      updateY += cursorVelocity;
+    PVector nextCursorXY;
+    if (lastMove) {
+      connection[t] = true;
+      float lossX = cursorXY.x - targetXY.x;
+      float lossY = cursorXY.y - targetXY.y;
+      float lastX = cursorXY.x;
+      float lastY = cursorXY.y;
+      if (abs(lossX) > abs(lossY)) {
+        if (lossX > 0) {
+          lastX -= frameWidth / 2;
+        } else {
+          lastX += frameWidth / 2;
+        }
+      } else {
+        if (lossY > 0){
+          lastY -= frameWidth / 2;
+        } else {
+          lastY += frameWidth / 2;
+        }
+      }
+      nextCursorXY = new PVector(lastX, lastY);
     } else {
-      updateX += cursorVelocity;
-    }
-    PVector nextCursorXY = new PVector(updateX, updateY);
-    int[] junctionIndex = findJunction(nextCursorXY);
-    int junctionRow = junctionIndex[0];
-    int junctionCol = junctionIndex[1];
-    if (junctionRow >= 0 && junctionCol >= 0) {
-      nextCursorXY = convertJunctionXY(junctionIndex);
-      IntList candidates = new IntList();
-      for (int k = 0; k < 4; k++) {
-        if (junctions[junctionRow][junctionCol][k]) {
-          int reverseDirection = (cursorDirection + 2) % 4;
-          if (k != reverseDirection) {
-            if (k == 0 && targetXY.y < nextCursorXY.y) {
-              candidates.append(k);
-            }
-            if (k == 1 && targetXY.x < nextCursorXY.x) {
-              candidates.append(k);
-            }
-            if (k == 2 && targetXY.y >= nextCursorXY.y) {
-              candidates.append(k);
-            }
-            if (k == 3 && targetXY.x >= nextCursorXY.x) {
-              candidates.append(k);
+      int cursorDirection = cursorDirections[t];
+      float updateX = cursorXY.x;
+      float updateY = cursorXY.y;
+      if (cursorDirection == 0) {
+        updateY -= cursorVelocity;
+      } else if (cursorDirection == 1) {
+        updateX -= cursorVelocity;
+      } else if (cursorDirection == 2) {
+        updateY += cursorVelocity;
+      } else {
+        updateX += cursorVelocity;
+      }
+      nextCursorXY = new PVector(updateX, updateY);
+      int[] junctionIndex = findJunction(nextCursorXY);
+      int junctionRow = junctionIndex[0];
+      int junctionCol = junctionIndex[1];
+      if (junctionRow >= 0 && junctionCol >= 0) {
+        nextCursorXY = convertJunctionXY(junctionIndex);
+        IntList candidates = new IntList();
+        for (int k = 0; k < 4; k++) {
+          if (junctions[junctionRow][junctionCol][k]) {
+            int reverseDirection = (cursorDirection + 2) % 4;
+            if (k != reverseDirection) {
+              if (k == 0 && targetXY.y < nextCursorXY.y) {
+                candidates.append(k);
+              }
+              if (k == 1 && targetXY.x < nextCursorXY.x) {
+                candidates.append(k);
+              }
+              if (k == 2 && targetXY.y >= nextCursorXY.y) {
+                candidates.append(k);
+              }
+              if (k == 3 && targetXY.x >= nextCursorXY.x) {
+                candidates.append(k);
+              }
             }
           }
         }
+        int randomSelect = int(random(candidates.size()));
+        int candidate = candidates.get(randomSelect);
+        cursorDirections[t] = candidate;
       }
-      int randomSelect = int(random(candidates.size()));
-      int candidate = candidates.get(randomSelect);
-      cursorDirections[t] = candidate;
     }
     cursorXYs[t] = nextCursorXY;
     
@@ -254,37 +258,17 @@ class Tile {
       cursorHistory[t][j - 1][1] = cursorHistory[t][j][1];
     }
     cursorHistory[t][cursorMemory - 1][0] = nextCursorXY.x;
-    cursorHistory[t][cursorMemory - 1][1] = nextCursorXY.y;
-    
-    // calculate distance
-    
-//float frameWidthRatio = frameWidth / float(tileSize + frameWidth);
-//canvas.vertex(
-//  lastCursor[0], 
-//  lastCursor[1]
-//);
-//canvas.vertex(
-//  (targetXY.x - lastCursor[0]) * frameWidthRatio + lastCursor[0],
-//  (targetXY.y - lastCursor[1]) * frameWidthRatio + lastCursor[1]
-//);
-
-    
+    cursorHistory[t][cursorMemory - 1][1] = nextCursorXY.y;   
   }
   
   void drawCursorHistory(int t) {
     canvas.stroke(cursorColor, 180);
     canvas.strokeWeight(cursorSize * scale);
     canvas.beginShape();
-    for (int j = 0; j < cursorMemory - 1; j ++) {
+    for (int j = 0; j < cursorMemory; j ++) {
       float[] cursor = cursorHistory[t][j];
       if (cursor[0] > -width && cursor[1] > -height) {
-        float[] nextCursor = cursorHistory[t][j + 1];
-        if (nextCursor[0] > -width && nextCursor[1] > -height) {
-          canvas.vertex(
-            cursor[0], 
-            cursor[1]
-          );
-        }
+        canvas.vertex(cursor[0], cursor[1]);
       }
     }
     canvas.endShape();
@@ -327,6 +311,7 @@ class Tile {
     cursorHistory[t][cursorMemory - 1][1] = secondaryY;
     cursorXYs[t] = new PVector(secondaryX, secondaryY);
     cursorDirections[t] = initialDirection;
+    connection[t] = false;
   }
   
   void initializeCursorColor() {
@@ -397,6 +382,9 @@ void keyPressed() {
 
 void keyReleased() {
   if (tileKeys.indexOf(key) >= 0) {
+    String date = year() + "/" + month() + "/" + day();
+    String time = hour() + ":" + minute() + ":" + second();
+    println(date, time, "key released:", key);
     setTileStatus(false);
     int popKeyIndex = findIndex(str(key), activeTileKey);
     activeTileKey.remove(popKeyIndex);
