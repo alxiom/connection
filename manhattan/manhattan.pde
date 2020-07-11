@@ -1,34 +1,34 @@
 import codeanticode.syphon.*;
 import processing.sound.*;
 
-boolean calibrationMode = false;
+boolean calibration = true;
 
 PGraphics canvas;
 SyphonServer server;
 
 SoundFile bgm;
-SoundFile effect;
+SoundFile sfx;
 
-int rowCount = 5;
-int colCount = 5;
+int rows = 5;
+int cols = 5;
 
-int scaleFactor = 4;
-int monadSize = 40 * scaleFactor;
-int frameWidth = 6 * scaleFactor;
+int scale = 4;
+int tileSize = 40 * scale;
+int frameWidth = 6 * scale;
 
-String monadKeys = "abcdefghijklmnopqrstuvwxy";
-int monadCount = monadKeys.length();
+String tileKeys = "abcdefghijklmnopqrstuvwxy";
+int tileCount = tileKeys.length();
 
-StringList activatedMonadKey = new StringList();
-boolean[] activatedMonad = new boolean[monadCount];
+StringList activeTileKey = new StringList();
+boolean[] activeTile = new boolean[tileCount];
 
-Monad[] monads = new Monad[monadCount];
-boolean[][][] intersections = new boolean[rowCount + 1][colCount + 1][4];
-int[] verticalDirections = {0, 2};
-int[] horizontalDirections = {1, 3};
+Tile[] tiles = new Tile[tileCount];
+boolean[][][] intersections = new boolean[rows + 1][cols + 1][4];
+int[] vertical = {0, 2};
+int[] horizontal = {1, 3};
 
 color frameColor = color(50);
-color[] monadColors = {
+color[] tileColors = {
   color(200, 200, 255), // a 1
   color(255, 200, 255), // b 2
   color(200, 200, 255), // c 3
@@ -56,59 +56,59 @@ color[] monadColors = {
   color(200, 200, 255), // y 25
 };
 
+int cursorSize = 2;
 int cursorMemory = 100;
 float cursorVelocity = 30.0;
 
 void setup() {
   size(920, 920, P3D);
-  background(100);
+  background(0);
   frameRate(30);
-  smooth();
   
   canvas = createGraphics(920, 920, P3D);
   server = new SyphonServer(this, "Processing Syphon");
   
-  initMonad();
+  initTile();
   initIntersections();
   loopSound();
 }
 
 void draw() {
   canvas.beginDraw();
-  //canvas.filter(BLUR, 1);
+  canvas.noFill();
   displayFrame();
-  for (Monad monad : monads) {
-    monad.checkActivate();
-    monad.displayMonad();
-    monad.displayCursor();
+  for (Tile tile : tiles) {
+    tile.checkActivate();
+    tile.displayTile();
+    tile.displayCursor();
   }
   canvas.endDraw();
   image(canvas, 0, 0);
   server.sendImage(canvas);
 }
 
-class Monad {
+class Tile {
 
   int id;
   PVector position;
   Boolean isActivated;
-  String monadKey;
+  String tileKey;
   
-  color monadColor;
+  color tileColor;
   color cursorColor;
 
-  int[] currentCursorDirections = new int[monadCount];
-  PVector[] currentCursorPositions = new PVector[monadCount];
-  float[][][] cursorHistory = new float[monadCount][cursorMemory][2];
+  int[] cursorDirections = new int[tileCount];
+  PVector[] cursorPositions = new PVector[tileCount];
+  float[][][] cursorHistory = new float[tileCount][cursorMemory][2];
 
-  Monad(int idInput, PVector positionInput) {
+  Tile(int idInput, PVector positionInput) {
     position = positionInput;
     id = idInput;
     isActivated = false;
-    monadKey = str(monadKeys.charAt(id));
-    monadColor = monadColors[id];
-    cursorColor = color(random(100, 255), random(100, 255), random(100, 255));
-    for (int i = 0; i < monadCount; i++) {
+    tileKey = str(tileKeys.charAt(id));
+    tileColor = tileColors[id];
+    initializeCursorColor();
+    for (int i = 0; i < tileCount; i++) {
       for (int j = 0; j < cursorMemory; j++) {
         cursorHistory[i][j][0] = -float(width);
         cursorHistory[i][j][1] = -float(height);
@@ -117,51 +117,44 @@ class Monad {
   }
 
   void checkActivate() {
-    isActivated = activatedMonad[id];
+    isActivated = activeTile[id];
   }
 
-  void displayMonad() {
-    canvas.noStroke();
+  void displayTile() {
+    float x = position.x;
+    float y = position.y;
+    float rO = tileSize / 2.0;
+    float rI = rO - frameWidth / 4.0;
+    
     if (isActivated) {
-      canvas.fill(monadColor);
-      canvas.rect(
-        position.x - monadSize / 2, 
-        position.y - monadSize / 2, 
-        monadSize, 
-        monadSize
-      );
-      canvas.fill(0);
-      canvas.rect(
-        position.x - monadSize / 2 + frameWidth / 2, 
-        position.y - monadSize / 2 + frameWidth / 2, 
-        monadSize - frameWidth, 
-        monadSize - frameWidth
-      );
+      canvas.stroke(tileColor);
     } else {
-      if (calibrationMode) {
-        canvas.fill(255);
+      if (calibration) {
+        canvas.stroke(255);
+        canvas.textSize(12 * scale);
+        canvas.text(tileKey, x - 3 * scale, y + 3 * scale);
       } else {
-        canvas.fill(0);
+        canvas.stroke(0);
       }
-      canvas.rect(
-        position.x - monadSize / 2, 
-        position.y - monadSize / 2, 
-        monadSize, 
-        monadSize
-      );
     }
+    
+    canvas.strokeWeight(frameWidth / 2);
+    canvas.line(x - rO, y - rI, x + rO, y - rI);
+    canvas.line(x + rI, y - rO, x + rI, y + rO);
+    canvas.line(x + rO, y + rI, x - rO, y + rI);
+    canvas.line(x - rI, y + rO, x - rI, y - rO);
   }
 
   void displayCursor() {
     if (isActivated) {
-      int cursorCount = countActivatedMonad() - 1;
+      int cursorCount = countActiveTileKey() - 1;
       if (cursorCount >= 1) {
-        for (int targetIndex = 0; targetIndex < monadCount; targetIndex++) {
-          if (targetIndex != id && activatedMonad[targetIndex]) {
+        for (int targetIndex = 0; targetIndex < tileCount; targetIndex++) {
+          if (targetIndex != id && activeTile[targetIndex]) {
             PVector targetPosition = convertPosition(targetIndex);
-            PVector currentPosition = currentCursorPositions[targetIndex];
+            PVector currentPosition = cursorPositions[targetIndex];
             float distance = PVector.dist(targetPosition, currentPosition);
-            if (distance > monadSize / 2 + frameWidth / 2 + 1.0) {
+            if (distance > tileSize / 2 + frameWidth / 2 + 1.0) {
               moveCursor(targetIndex, targetPosition);
             }
             drawCursorHistory(targetIndex);
@@ -170,13 +163,13 @@ class Monad {
           }
         }
       } else {
-        for (int i = 0; i < monadCount; i++) {
+        for (int i = 0; i < tileCount; i++) {
           initializeCursor(i);
           initializeCursorColor();
         }
       } 
     } else {
-      for (int i = 0; i < monadCount; i++) {
+      for (int i = 0; i < tileCount; i++) {
         initializeCursor(i);
         initializeCursorColor();
       }
@@ -184,15 +177,15 @@ class Monad {
   }
   
   void moveCursor(int targetIndex, PVector targetPosition) {
-    PVector currentCursorPosition = currentCursorPositions[targetIndex];
-    int currentCursorDirection = currentCursorDirections[targetIndex];
-    float updateX = currentCursorPosition.x;
-    float updateY = currentCursorPosition.y;
-    if (currentCursorDirection == 0) {
+    PVector cursorPosition = cursorPositions[targetIndex];
+    int cursorDirection = cursorDirections[targetIndex];
+    float updateX = cursorPosition.x;
+    float updateY = cursorPosition.y;
+    if (cursorDirection == 0) {
       updateY -= cursorVelocity;
-    } else if (currentCursorDirection == 1) {
+    } else if (cursorDirection == 1) {
       updateX -= cursorVelocity;
-    } else if (currentCursorDirection == 2) {
+    } else if (cursorDirection == 2) {
       updateY += cursorVelocity;
     } else {
       updateX += cursorVelocity;
@@ -206,7 +199,7 @@ class Monad {
       IntList candidates = new IntList();
       for (int k = 0; k < 4; k++) {
         if (intersections[intersectionRow][intersectionCol][k]) {
-          int reverseDirection = (currentCursorDirection + 2) % 4;
+          int reverseDirection = (cursorDirection + 2) % 4;
           if (k != reverseDirection) {
             if (k == 0 && targetPosition.y < nextCursorPosition.y) {
               candidates.append(k);
@@ -224,9 +217,9 @@ class Monad {
         }
       }
       int candidate = candidates.get(int(random(candidates.size())));
-      currentCursorDirections[targetIndex] = candidate;
+      cursorDirections[targetIndex] = candidate;
     }
-    currentCursorPositions[targetIndex] = nextCursorPosition;
+    cursorPositions[targetIndex] = nextCursorPosition;
     
     // shift history to left
     for (int j = 1; j < cursorMemory; j++) {
@@ -235,31 +228,10 @@ class Monad {
     }
     cursorHistory[targetIndex][cursorMemory - 1][0] = nextCursorPosition.x;
     cursorHistory[targetIndex][cursorMemory - 1][1] = nextCursorPosition.y;
-  }
-  
-  void drawCursorHistory(int targetIndex) {
-    canvas.noFill();
-    canvas.stroke(cursorColor, 180);
-    canvas.strokeWeight(2 * scaleFactor);
-    canvas.strokeJoin(ROUND);
-    canvas.strokeCap(ROUND);
-    canvas.beginShape();
     
-    //float[] lastCursor = new float[2];
-    for (int j = 0; j < cursorMemory - 1; j ++) {
-      float[] currentCursor = cursorHistory[targetIndex][j];
-      if (currentCursor[0] > -float(width) && currentCursor[1] > -float(height)) {
-        float[] nextCursor = cursorHistory[targetIndex][j + 1];
-        if (nextCursor[0] > -float(width) && nextCursor[1] > -float(height)) {
-          canvas.vertex(
-            currentCursor[0], 
-            currentCursor[1]
-          );
-          //lastCursor = nextCursor;
-        }
-      }
-    }
-    //float frameWidthRatio = frameWidth / float(monadSize + frameWidth);
+    // calculate distance
+    
+    //float frameWidthRatio = frameWidth / float(tileSize + frameWidth);
     //canvas.vertex(
     //  lastCursor[0], 
     //  lastCursor[1]
@@ -268,6 +240,26 @@ class Monad {
     //  (targetPosition.x - lastCursor[0]) * frameWidthRatio + lastCursor[0],
     //  (targetPosition.y - lastCursor[1]) * frameWidthRatio + lastCursor[1]
     //);
+    
+    
+  }
+  
+  void drawCursorHistory(int targetIndex) {
+    canvas.stroke(cursorColor, 180);
+    canvas.strokeWeight(cursorSize * scale);
+    canvas.beginShape();
+    for (int j = 0; j < cursorMemory - 1; j ++) {
+      float[] cursor = cursorHistory[targetIndex][j];
+      if (cursor[0] > -float(width) && cursor[1] > -float(height)) {
+        float[] nextCursor = cursorHistory[targetIndex][j + 1];
+        if (nextCursor[0] > -float(width) && nextCursor[1] > -float(height)) {
+          canvas.vertex(
+            cursor[0], 
+            cursor[1]
+          );
+        }
+      }
+    }
     canvas.endShape();
   }
 
@@ -280,23 +272,24 @@ class Monad {
     float secondaryX = position.x;
     float secondaryY = position.y;
     if (randomEdge == 0) {
-      primaryY -= monadSize / 2.0;
-      secondaryY -= (monadSize + frameWidth) / 2.0;
-      initialDirection = horizontalDirections[randomDirection];
+      primaryY -= tileSize / 2.0;
+      secondaryY -= (tileSize + frameWidth) / 2.0;
+      initialDirection = horizontal[randomDirection];
     } else if (randomEdge == 1) {
-      primaryX -= monadSize / 2.0;
-      secondaryX -= (monadSize + frameWidth) / 2.0;
-      initialDirection = verticalDirections[randomDirection];
+      primaryX -= tileSize / 2.0;
+      secondaryX -= (tileSize + frameWidth) / 2.0;
+      initialDirection = vertical[randomDirection];
     } else if (randomEdge == 2) {
-      primaryY += monadSize / 2.0;
-      secondaryY += (monadSize + frameWidth) / 2.0;
-      initialDirection = horizontalDirections[randomDirection];
+      primaryY += tileSize / 2.0;
+      secondaryY += (tileSize + frameWidth) / 2.0;
+      initialDirection = horizontal[randomDirection];
     } else {
-      primaryX += monadSize / 2.0;
-      secondaryX += (monadSize + frameWidth) / 2.0;
-      initialDirection = verticalDirections[randomDirection];
+      primaryX += tileSize / 2.0;
+      secondaryX += (tileSize + frameWidth) / 2.0;
+      initialDirection = vertical[randomDirection];
     }
-              
+    
+    // reset cursor history
     for (int i = 0; i < cursorMemory; i++) {
       cursorHistory[targetIndex][i][0] = -float(width);
       cursorHistory[targetIndex][i][1] = -float(height);
@@ -305,8 +298,8 @@ class Monad {
     cursorHistory[targetIndex][cursorMemory - 2][1] = primaryY;
     cursorHistory[targetIndex][cursorMemory - 1][0] = secondaryX;
     cursorHistory[targetIndex][cursorMemory - 1][1] = secondaryY;
-    currentCursorPositions[targetIndex] = new PVector(secondaryX, secondaryY);
-    currentCursorDirections[targetIndex] = initialDirection;
+    cursorPositions[targetIndex] = new PVector(secondaryX, secondaryY);
+    cursorDirections[targetIndex] = initialDirection;
   }
   
   void initializeCursorColor() {
@@ -314,25 +307,24 @@ class Monad {
   }
 }
 
-
-void initMonad() {
-  for (int i = 0; i < rowCount; i++) {
-    for (int j = 0; j < colCount; j++) {
-      int id = i * rowCount + j;
-      float x = frameWidth * (j + 0.5) + monadSize * j + monadSize / 2;
-      float y = frameWidth * (i + 0.5) + monadSize * i + monadSize / 2;
+void initTile() {
+  for (int i = 0; i < rows; i++) {
+    for (int j = 0; j < cols; j++) {
+      int id = i * rows + j;
+      float x = frameWidth * (j + 0.5) + tileSize * j + tileSize / 2;
+      float y = frameWidth * (i + 0.5) + tileSize * i + tileSize / 2;
       PVector position = new PVector(x, y);
-      monads[id] = new Monad(id, position);
+      tiles[id] = new Tile(id, position);
     }
   }
 }
 
 void initIntersections() {
-  for (int i = 0; i < rowCount + 1; i++) {
-    for (int j = 0; j < colCount + 1; j++) {
+  for (int i = 0; i < rows + 1; i++) {
+    for (int j = 0; j < cols + 1; j++) {
       if (i == 0) {
         intersections[i][j][2] = true;
-      } else if (i == rowCount) {
+      } else if (i == rows) {
         intersections[i][j][0] = true;
       } else {
         intersections[i][j][0] = true;
@@ -341,7 +333,7 @@ void initIntersections() {
   
       if (j == 0) {
         intersections[i][j][3] = true;
-      } else if (j == colCount) {
+      } else if (j == cols) {
         intersections[i][j][1] = true;
       } else {
         intersections[i][j][1] = true;
@@ -361,37 +353,37 @@ int findIndex(String keyString, StringList targetList) {
 }
 
 void keyPressed() {
-  if (monadKeys.indexOf(key) >= 0) {
-    if (!activatedMonadKey.hasValue(str(key))) {
-      setMonadStatus(true);
-      activatedMonadKey.append(str(key));
+  if (tileKeys.indexOf(key) >= 0) {
+    if (!activeTileKey.hasValue(str(key))) {
+      setTileStatus(true);
+      activeTileKey.append(str(key));
       
-      effect = new SoundFile(this, "connection effect.wav");
-      effect.play();
+      sfx = new SoundFile(this, "connection effect.wav");
+      sfx.play();
     }
   }
 }
 
 void keyReleased() {
-  if (monadKeys.indexOf(key) >= 0) {
-    setMonadStatus(false);
-    int popKeyIndex = findIndex(str(key), activatedMonadKey);
-    activatedMonadKey.remove(popKeyIndex);
+  if (tileKeys.indexOf(key) >= 0) {
+    setTileStatus(false);
+    int popKeyIndex = findIndex(str(key), activeTileKey);
+    activeTileKey.remove(popKeyIndex);
   }
 }
 
-void setMonadStatus(boolean isActivated) {
+void setTileStatus(boolean isActivated) {
   String keyString = str(key);
-  int keyIndex = monadKeys.indexOf(keyString);
+  int keyIndex = tileKeys.indexOf(keyString);
   if (keyIndex >= 0) {
-    activatedMonad[keyIndex] = isActivated;
+    activeTile[keyIndex] = isActivated;
   }
 }
 
-int countActivatedMonad() {
+int countActiveTileKey() {
   int count = 0;
-  for (int i = 0; i < monadCount; i++) {
-    if (activatedMonad[i]) {
+  for (int i = 0; i < tileCount; i++) {
+    if (activeTile[i]) {
       count += 1;
     }
   }
@@ -399,29 +391,29 @@ int countActivatedMonad() {
 }
 
 PVector convertPosition(int index) {
-  int j = index % rowCount;
-  int i = index / rowCount;
-  float x = frameWidth * (j + 0.5) + monadSize * j + monadSize / 2;
-  float y = frameWidth * (i + 0.5) + monadSize * i + monadSize / 2;
+  int j = index % rows;
+  int i = index / rows;
+  float x = frameWidth * (j + 0.5) + tileSize * j + tileSize / 2;
+  float y = frameWidth * (i + 0.5) + tileSize * i + tileSize / 2;
   PVector xy = new PVector(x, y);
   return xy;
 }
 
 PVector convertIntersectionPosition(int[] intersectionIndex) {
-  float x = (monadSize + frameWidth) * intersectionIndex[1];
-  float y = (monadSize + frameWidth) * intersectionIndex[0];
+  float x = (tileSize + frameWidth) * intersectionIndex[1];
+  float y = (tileSize + frameWidth) * intersectionIndex[0];
   PVector xy = new PVector(x, y);
   return xy;
 }
 
 int[] findIntersectionIndex(PVector cursorPosition) {
   int[] cornerIndex = {-1, -1};
-  for (int i = 0; i < rowCount + 1; i++) {
-    float cornerY = (monadSize + frameWidth) * i;
+  for (int i = 0; i < rows + 1; i++) {
+    float cornerY = (tileSize + frameWidth) * i;
     float distanceY = abs(cornerY - cursorPosition.y);
     if (distanceY < cursorVelocity) {
-      for (int j = 0; j < colCount + 1; j++) {
-        float cornerX = (monadSize + frameWidth) * j;
+      for (int j = 0; j < cols + 1; j++) {
+        float cornerX = (tileSize + frameWidth) * j;
         float distanceX = abs(cornerX - cursorPosition.x);
         if (distanceX < cursorVelocity) {
           cornerIndex[0] = i;
@@ -443,21 +435,14 @@ void loopSound() {
 void displayFrame() {
   canvas.stroke(frameColor);
   canvas.strokeWeight(frameWidth);
-  for (int i = 0; i <= rowCount; i++) {
-    canvas.line(
-      0, 
-      i * (monadSize + frameWidth),
-      width, 
-      i * (monadSize + frameWidth)
-    );
+  canvas.beginShape(LINES);
+  for (int i = 0; i <= rows; i++) {
+    canvas.vertex(0, i * (tileSize + frameWidth));
+    canvas.vertex(width, i * (tileSize + frameWidth));
   }
-  
-  for (int i = 0; i <= colCount; i++) {
-    canvas.line( 
-      i * (monadSize + frameWidth),
-      0,
-      i * (monadSize + frameWidth),
-      height
-    );
+  for (int i = 0; i <= cols; i++) {
+    canvas.vertex(i * (tileSize + frameWidth), 0);
+    canvas.vertex(i * (tileSize + frameWidth), height);
   }
+  canvas.endShape();
 }
