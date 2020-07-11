@@ -1,4 +1,13 @@
 import codeanticode.syphon.*;
+import processing.sound.*;
+
+boolean calibrationMode = false;
+
+PGraphics canvas;
+SyphonServer server;
+
+SoundFile bgm;
+SoundFile effect;
 
 int rowCount = 5;
 int colCount = 5;
@@ -18,9 +27,7 @@ boolean[][][] intersections = new boolean[rowCount + 1][colCount + 1][4];
 int[] verticalDirections = {0, 2};
 int[] horizontalDirections = {1, 3};
 
-int cursorMemory = 100;
-float cursorVelocity = 30.0;
-
+color frameColor = color(50);
 color[] monadColors = {
   color(200, 200, 255), // a 1
   color(255, 200, 255), // b 2
@@ -49,50 +56,32 @@ color[] monadColors = {
   color(200, 200, 255), // y 25
 };
 
-PGraphics canvas;
-SyphonServer server;
+int cursorMemory = 100;
+float cursorVelocity = 30.0;
 
 void setup() {
   size(920, 920, P3D);
-  background(0);
+  background(100);
   frameRate(30);
-    
+  smooth();
+  
   canvas = createGraphics(920, 920, P3D);
   server = new SyphonServer(this, "Processing Syphon");
   
   initMonad();
   initIntersections();
+  loopSound();
 }
 
 void draw() {
   canvas.beginDraw();
-  canvas.stroke(0, 6);
-  canvas.strokeWeight(frameWidth);
-  for (int i = 0; i <= rowCount; i++) {
-    canvas.line(
-      0, 
-      i * (monadSize + frameWidth),
-      width, 
-      i * (monadSize + frameWidth)
-    );
-  }
-  
-  for (int i = 0; i <= colCount; i++) {
-    canvas.line( 
-      i * (monadSize + frameWidth),
-      0,
-      i * (monadSize + frameWidth),
-      height
-    );
-  }
-  
-  
+  //canvas.filter(BLUR, 1);
+  displayFrame();
   for (Monad monad : monads) {
     monad.checkActivate();
     monad.displayMonad();
     monad.displayCursor();
   }
-  
   canvas.endDraw();
   image(canvas, 0, 0);
   server.sendImage(canvas);
@@ -103,7 +92,6 @@ class Monad {
   int id;
   PVector position;
   Boolean isActivated;
-  Boolean wasActivated;
   String monadKey;
   
   color monadColor;
@@ -117,37 +105,51 @@ class Monad {
     position = positionInput;
     id = idInput;
     isActivated = false;
-    wasActivated = false;
     monadKey = str(monadKeys.charAt(id));
     monadColor = monadColors[id];
     cursorColor = color(random(100, 255), random(100, 255), random(100, 255));
     for (int i = 0; i < monadCount; i++) {
       for (int j = 0; j < cursorMemory; j++) {
-        cursorHistory[i][j][0] = -100.0;
-        cursorHistory[i][j][1] = -100.0;
+        cursorHistory[i][j][0] = -float(width);
+        cursorHistory[i][j][1] = -float(height);
       }
     }
   }
 
   void checkActivate() {
-    wasActivated = isActivated;
     isActivated = activatedMonad[id];
   }
 
   void displayMonad() {
+    canvas.noStroke();
     if (isActivated) {
       canvas.fill(monadColor);
-    } else {
+      canvas.rect(
+        position.x - monadSize / 2, 
+        position.y - monadSize / 2, 
+        monadSize, 
+        monadSize
+      );
       canvas.fill(0);
+      canvas.rect(
+        position.x - monadSize / 2 + frameWidth / 2, 
+        position.y - monadSize / 2 + frameWidth / 2, 
+        monadSize - frameWidth, 
+        monadSize - frameWidth
+      );
+    } else {
+      if (calibrationMode) {
+        canvas.fill(255);
+      } else {
+        canvas.fill(0);
+      }
+      canvas.rect(
+        position.x - monadSize / 2, 
+        position.y - monadSize / 2, 
+        monadSize, 
+        monadSize
+      );
     }
-    canvas.stroke(255);
-    canvas.strokeWeight(1);
-    canvas.rect(
-      position.x - monadSize / 2, 
-      position.y - monadSize / 2, 
-      monadSize, 
-      monadSize
-    );
   }
 
   void displayCursor() {
@@ -155,39 +157,33 @@ class Monad {
       int cursorCount = countActivatedMonad() - 1;
       if (cursorCount >= 1) {
         for (int targetIndex = 0; targetIndex < monadCount; targetIndex++) {
-          if (!wasActivated) {
-            initializeCursor(targetIndex);
-          }
           if (targetIndex != id && activatedMonad[targetIndex]) {
-            canvas.line(
-              cursorHistory[targetIndex][cursorMemory - 1][0], 
-              cursorHistory[targetIndex][cursorMemory - 1][1], 
-              cursorHistory[targetIndex][cursorMemory - 2][0], 
-              cursorHistory[targetIndex][cursorMemory - 2][1]
-            );
             PVector targetPosition = convertPosition(targetIndex);
             PVector currentPosition = currentCursorPositions[targetIndex];
             float distance = PVector.dist(targetPosition, currentPosition);
-            if (distance >= monadSize / 2.0 + frameWidth) {
-              displayConnection(targetIndex, targetPosition);
-            } else {
-              displayCursorHistory(targetIndex, targetPosition);
+            if (distance > monadSize / 2 + frameWidth / 2 + 1.0) {
+              moveCursor(targetIndex, targetPosition);
             }
+            drawCursorHistory(targetIndex);
+          } else {
+            initializeCursor(targetIndex);
           }
         }
       } else {
         for (int i = 0; i < monadCount; i++) {
           initializeCursor(i);
+          initializeCursorColor();
         }
       } 
     } else {
-        for (int i = 0; i < monadCount; i++) {
-          initializeCursor(i);
-        } 
+      for (int i = 0; i < monadCount; i++) {
+        initializeCursor(i);
+        initializeCursorColor();
+      }
     }
   }
   
-  void displayConnection(int targetIndex, PVector targetPosition) {
+  void moveCursor(int targetIndex, PVector targetPosition) {
     PVector currentCursorPosition = currentCursorPositions[targetIndex];
     int currentCursorDirection = currentCursorDirections[targetIndex];
     float updateX = currentCursorPosition.x;
@@ -230,15 +226,6 @@ class Monad {
       int candidate = candidates.get(int(random(candidates.size())));
       currentCursorDirections[targetIndex] = candidate;
     }
-    canvas.stroke(cursorColor);
-    canvas.strokeCap(ROUND);
-    canvas.strokeWeight(2 * scaleFactor);
-    canvas.line(
-      currentCursorPosition.x, 
-      currentCursorPosition.y, 
-      nextCursorPosition.x, 
-      nextCursorPosition.y
-    );
     currentCursorPositions[targetIndex] = nextCursorPosition;
     
     // shift history to left
@@ -250,34 +237,38 @@ class Monad {
     cursorHistory[targetIndex][cursorMemory - 1][1] = nextCursorPosition.y;
   }
   
-  void displayCursorHistory(int targetIndex, PVector targetPosition) {
-    canvas.stroke(cursorColor);
-    canvas.strokeCap(ROUND);
+  void drawCursorHistory(int targetIndex) {
+    canvas.noFill();
+    canvas.stroke(cursorColor, 180);
     canvas.strokeWeight(2 * scaleFactor);
-    float[] lastCursor = new float[2];
+    canvas.strokeJoin(ROUND);
+    canvas.strokeCap(ROUND);
+    canvas.beginShape();
+    
+    //float[] lastCursor = new float[2];
     for (int j = 0; j < cursorMemory - 1; j ++) {
       float[] currentCursor = cursorHistory[targetIndex][j];
-      if (currentCursor[0] > -99.0 && currentCursor[1] > -99.0) {
+      if (currentCursor[0] > -float(width) && currentCursor[1] > -float(height)) {
         float[] nextCursor = cursorHistory[targetIndex][j + 1];
-        if (nextCursor[0] > -99.0 && nextCursor[1] > -99.0) {
-          canvas.line(
+        if (nextCursor[0] > -float(width) && nextCursor[1] > -float(height)) {
+          canvas.vertex(
             currentCursor[0], 
-            currentCursor[1], 
-            nextCursor[0], 
-            nextCursor[1]
+            currentCursor[1]
           );
-          lastCursor = nextCursor;
+          //lastCursor = nextCursor;
         }
       }
     }
-    
-    float frameWidthRatio = frameWidth / float(monadSize + frameWidth);
-    canvas.line(
-      lastCursor[0], 
-      lastCursor[1], 
-      (targetPosition.x - lastCursor[0]) * frameWidthRatio + lastCursor[0],
-      (targetPosition.y - lastCursor[1]) * frameWidthRatio + lastCursor[1]
-    );
+    //float frameWidthRatio = frameWidth / float(monadSize + frameWidth);
+    //canvas.vertex(
+    //  lastCursor[0], 
+    //  lastCursor[1]
+    //);
+    //canvas.vertex(
+    //  (targetPosition.x - lastCursor[0]) * frameWidthRatio + lastCursor[0],
+    //  (targetPosition.y - lastCursor[1]) * frameWidthRatio + lastCursor[1]
+    //);
+    canvas.endShape();
   }
 
   void initializeCursor(int targetIndex) {
@@ -306,10 +297,9 @@ class Monad {
       initialDirection = verticalDirections[randomDirection];
     }
               
-    cursorColor = color(random(100, 255), random(100, 255), random(100, 255));
     for (int i = 0; i < cursorMemory; i++) {
-      cursorHistory[targetIndex][i][0] = -100.0;
-      cursorHistory[targetIndex][i][1] = -100.0;
+      cursorHistory[targetIndex][i][0] = -float(width);
+      cursorHistory[targetIndex][i][1] = -float(height);
     }
     cursorHistory[targetIndex][cursorMemory - 2][0] = primaryX;
     cursorHistory[targetIndex][cursorMemory - 2][1] = primaryY;
@@ -317,6 +307,10 @@ class Monad {
     cursorHistory[targetIndex][cursorMemory - 1][1] = secondaryY;
     currentCursorPositions[targetIndex] = new PVector(secondaryX, secondaryY);
     currentCursorDirections[targetIndex] = initialDirection;
+  }
+  
+  void initializeCursorColor() {
+    cursorColor = color(random(100, 255), random(100, 255), random(100, 255));
   }
 }
 
@@ -371,6 +365,9 @@ void keyPressed() {
     if (!activatedMonadKey.hasValue(str(key))) {
       setMonadStatus(true);
       activatedMonadKey.append(str(key));
+      
+      effect = new SoundFile(this, "connection effect.wav");
+      effect.play();
     }
   }
 }
@@ -422,14 +419,11 @@ int[] findIntersectionIndex(PVector cursorPosition) {
   for (int i = 0; i < rowCount + 1; i++) {
     float cornerY = (monadSize + frameWidth) * i;
     float distanceY = abs(cornerY - cursorPosition.y);
-    
     if (distanceY < cursorVelocity) {
-      
       for (int j = 0; j < colCount + 1; j++) {
         float cornerX = (monadSize + frameWidth) * j;
         float distanceX = abs(cornerX - cursorPosition.x);
         if (distanceX < cursorVelocity) {
-          
           cornerIndex[0] = i;
           cornerIndex[1] = j;
           return cornerIndex;
@@ -439,4 +433,31 @@ int[] findIntersectionIndex(PVector cursorPosition) {
     }
   }
   return cornerIndex;
+}
+
+void loopSound() {
+  bgm = new SoundFile(this, "connection bgm.wav");
+  bgm.loop();
+}
+
+void displayFrame() {
+  canvas.stroke(frameColor);
+  canvas.strokeWeight(frameWidth);
+  for (int i = 0; i <= rowCount; i++) {
+    canvas.line(
+      0, 
+      i * (monadSize + frameWidth),
+      width, 
+      i * (monadSize + frameWidth)
+    );
+  }
+  
+  for (int i = 0; i <= colCount; i++) {
+    canvas.line( 
+      i * (monadSize + frameWidth),
+      0,
+      i * (monadSize + frameWidth),
+      height
+    );
+  }
 }
