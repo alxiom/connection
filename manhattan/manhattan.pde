@@ -156,6 +156,32 @@ class Tile {
             float distance = PVector.dist(targetXY, currentXY);
             if (distance > tileSize / 2 + frameWidth / 2 + 1.0) {
               moveCursor(t, targetXY);
+            } else {
+              float lossX = currentXY.x - targetXY.x;
+              float lossY = currentXY.y - targetXY.y;
+              float lastX = currentXY.x;
+              float lastY = currentXY.y;
+              if (abs(lossX) > abs(lossY)) {
+                if (lossX > 0) {
+                  lastX -= frameWidth / 2;
+                } else {
+                  lastX += frameWidth / 2;
+                }
+              } else {
+                if (lossY > 0){
+                  lastY -= frameWidth / 2;
+                } else {
+                  lastY += frameWidth / 2;
+                }
+              }
+              PVector lastCursor = new PVector(lastX, lastY);
+              
+              for (int j = 1; j < cursorMemory; j++) {
+                cursorHistory[t][j - 1][0] = cursorHistory[t][j][0];
+                cursorHistory[t][j - 1][1] = cursorHistory[t][j][1];
+              }
+              cursorHistory[t][cursorMemory - 1][0] = lastCursor.x;
+              cursorHistory[t][cursorMemory - 1][1] = lastCursor.y;
             }
             drawCursorHistory(t);
           } else {
