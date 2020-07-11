@@ -121,6 +121,12 @@ class Monad {
     monadKey = str(monadKeys.charAt(id));
     monadColor = monadColors[id];
     cursorColor = color(random(100, 255), random(100, 255), random(100, 255));
+    for (int i = 0; i < monadCount; i++) {
+      for (int j = 0; j < cursorMemory; j++) {
+        cursorHistory[i][j][0] = -100.0;
+        cursorHistory[i][j][1] = -100.0;
+      }
+    }
   }
 
   void checkActivate() {
@@ -251,9 +257,9 @@ class Monad {
     float[] lastCursor = new float[2];
     for (int j = 0; j < cursorMemory - 1; j ++) {
       float[] currentCursor = cursorHistory[targetIndex][j];
-      if (currentCursor[0] > 0.0 && currentCursor[1] > 0.0) {
+      if (currentCursor[0] > -99.0 && currentCursor[1] > -99.0) {
         float[] nextCursor = cursorHistory[targetIndex][j + 1];
-        if (nextCursor[0] > 0.0 && nextCursor[1] > 0.0) {
+        if (nextCursor[0] > -99.0 && nextCursor[1] > -99.0) {
           canvas.line(
             currentCursor[0], 
             currentCursor[1], 
@@ -301,7 +307,10 @@ class Monad {
     }
               
     cursorColor = color(random(100, 255), random(100, 255), random(100, 255));
-    cursorHistory[targetIndex] = new float[cursorMemory][2];    
+    for (int i = 0; i < cursorMemory; i++) {
+      cursorHistory[targetIndex][i][0] = -100.0;
+      cursorHistory[targetIndex][i][1] = -100.0;
+    }
     cursorHistory[targetIndex][cursorMemory - 2][0] = primaryX;
     cursorHistory[targetIndex][cursorMemory - 2][1] = primaryY;
     cursorHistory[targetIndex][cursorMemory - 1][0] = secondaryX;
