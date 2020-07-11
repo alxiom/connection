@@ -14,6 +14,7 @@ int cols = 5;
 
 int scale = 4;
 int tileSize = 40 * scale;
+int tileEdge = 3 * scale;
 int frameWidth = 6 * scale;
 
 String tileKeys = "abcdefghijklmnopqrstuvwxy";
@@ -27,7 +28,9 @@ boolean[][][] junctions = new boolean[rows + 1][cols + 1][4];
 int[] vertical = {0, 2};
 int[] horizontal = {1, 3};
 
-color frameColor = color(50);
+int tileCopy = 4;
+int tileAlpha = 8;
+int tileDimOut = 32;
 color[] tileColors = {
   color(200, 200, 255), // a 1
   color(255, 200, 255), // b 2
@@ -56,6 +59,9 @@ color[] tileColors = {
   color(200, 200, 255), // y 25
 };
 
+color frameColor = color(50);
+
+int cursorAlpha = 160;
 int cursorSize = 2;
 int cursorMemory = 100;
 float cursorVelocity = 30.0;
@@ -64,6 +70,7 @@ void setup() {
   size(920, 920, P3D);
   background(0);
   frameRate(30);
+  smooth(8);
   
   canvas = createGraphics(920, 920, P3D);
   server = new SyphonServer(this, "Processing Syphon");
@@ -76,7 +83,6 @@ void setup() {
 void draw() {
   canvas.beginDraw();
   canvas.noFill();
-  //canvas.tint(0, 100);
   displayFrame();
   for (Tile tile : tileArray) {
     tile.checkActivate();
@@ -127,25 +133,42 @@ class Tile {
     float x = xy.x;
     float y = xy.y;
     float rO = tileSize / 2.0;
-    float rI = rO - frameWidth / 4.0;
+    float rI = rO - tileEdge / 2.0;
     
-    if (isActivated) {
-      canvas.stroke(tileColor);
+    canvas.strokeWeight(tileEdge); 
+    if (calibration) {
+      canvas.stroke(255);
+      canvas.textSize(12 * scale);
+      canvas.text(tileKey, x - 3 * scale, y + 3 * scale);
+      drawTile(x, y, rO, rI, tileEdge);
     } else {
-      if (calibration) {
-        canvas.stroke(255);
-        canvas.textSize(12 * scale);
-        canvas.text(tileKey, x - 3 * scale, y + 3 * scale);
+      if (isActivated) {
+        canvas.stroke(tileColor, tileAlpha);
       } else {
-        canvas.stroke(0);
+        canvas.stroke(0, tileDimOut);
+      }
+      drawTile(x, y, rO, rI, tileEdge);      
+      
+      for (int i = 0; i < tileCopy; i++) {
+        rO -= tileEdge / pow(2, i);
+        rI = rO - tileEdge / pow(2, i + 2);
+        canvas.strokeWeight(tileEdge / pow(2, i + 1)); 
+        if (isActivated) {
+          canvas.stroke(tileColor, tileAlpha / pow(2, i + 1));
+          drawTile(x, y, rO, rI, tileEdge / pow(2, i + 1));
+        } else {
+          canvas.stroke(0, tileDimOut);
+          drawTile(x, y, rO, rI, tileEdge / pow(2, i + 1));
+        }
       }
     }
-    
-    canvas.strokeWeight(frameWidth / 2);
-    canvas.line(x - rO, y - rI, x + rO, y - rI);
-    canvas.line(x + rI, y - rO, x + rI, y + rO);
-    canvas.line(x + rO, y + rI, x - rO, y + rI);
-    canvas.line(x - rI, y + rO, x - rI, y - rO);
+  }
+
+  void drawTile(float x, float y, float rO, float rI, float edge) {
+    canvas.line(x - rO, y - rI, x + rO - edge, y - rI);
+    canvas.line(x + rI, y - rO, x + rI, y + rO - edge);
+    canvas.line(x + rO, y + rI, x - rO + edge, y + rI);
+    canvas.line(x - rI, y + rO, x - rI, y - rO + edge);
   }
 
   void displayCursor() {
@@ -262,7 +285,7 @@ class Tile {
   }
   
   void drawCursorHistory(int t) {
-    canvas.stroke(cursorColor, 180);
+    canvas.stroke(cursorColor, cursorAlpha);
     canvas.strokeWeight(cursorSize * scale);
     canvas.beginShape();
     for (int j = 0; j < cursorMemory; j ++) {
