@@ -14,7 +14,7 @@ int cols = 5;
 
 int scale = 4;
 int tileSize = 40 * scale;
-int tileEdge = 3 * scale;
+int tileEdge = 4 * scale;
 int frameWidth = 6 * scale;
 
 String tileKeys = "abcdefghijklmnopqrstuvwxy";
@@ -29,6 +29,7 @@ int[] vertical = {0, 2};
 int[] horizontal = {1, 3};
 
 int tileCopy = 4;
+float tileDecay = 0.75;
 int tileAlpha = 8;
 int tileDimOut = 32;
 color[] tileColors = {
@@ -150,15 +151,15 @@ class Tile {
       drawTile(x, y, rO, rI, tileEdge);      
       
       for (int i = 0; i < tileCopy; i++) {
-        rO -= tileEdge / pow(2, i);
-        rI = rO - tileEdge / pow(2, i + 2);
-        canvas.strokeWeight(tileEdge / pow(2, i + 1)); 
+        rO -= tileEdge * pow(tileDecay, i);
+        rI = rO - tileEdge * pow(tileDecay, i + 1) / 2;
+        canvas.strokeWeight(tileEdge * pow(tileDecay, i + 1)); 
         if (isActivated) {
-          canvas.stroke(tileColor, tileAlpha / pow(2, i + 1));
-          drawTile(x, y, rO, rI, tileEdge / pow(2, i + 1));
+          canvas.stroke(tileColor, tileAlpha * pow(tileDecay, i + 1));
+          drawTile(x, y, rO, rI, tileEdge * pow(tileDecay, i + 1));
         } else {
           canvas.stroke(0, tileDimOut);
-          drawTile(x, y, rO, rI, tileEdge / pow(2, i + 1));
+          drawTile(x, y, rO, rI, tileEdge * pow(tileDecay, i + 1));
         }
       }
     }
