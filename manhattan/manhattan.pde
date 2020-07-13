@@ -1,7 +1,7 @@
 import codeanticode.syphon.*;
 import processing.sound.*;
 
-boolean calibration = false;
+boolean calibration = true;
 
 PGraphics canvas;
 SyphonServer server;
@@ -12,7 +12,7 @@ SoundFile sfx;
 int rows = 5;
 int cols = 5;
 
-int scale = 4;
+int scale = 6;
 int tileSize = 40 * scale;
 int tileEdge = 4 * scale;
 int frameWidth = 6 * scale;
@@ -29,35 +29,35 @@ int[] vertical = {0, 2};
 int[] horizontal = {1, 3};
 
 int tileCopy = 4;
-float decay = 0.75;
+float decay = 0.6;
 int tileAlpha = 8;
 int tileDimOut = 32;
 color[] tileColors = {
-  color(200, 200, 255), // a 1
-  color(255, 200, 255), // b 2
-  color(200, 200, 255), // c 3
-  color(255, 200, 255), // d 4
-  color(200, 200, 255), // e 5
-  color(255, 200, 255), // f 6
-  color(200, 255, 200), // g 7
-  color(255, 255, 200), // h 8
-  color(200, 255, 200), // i 9
-  color(255, 200, 255), // j 10
-  color(200, 200, 255), // k 11
-  color(255, 255, 200), // l 12
-  color(200, 255, 255), // m 13
-  color(255, 255, 200), // n 14
-  color(200, 200, 255), // o 15
-  color(255, 200, 255), // p 16
-  color(200, 255, 200), // q 17
-  color(255, 255, 200), // r 18
-  color(200, 255, 200), // s 19
-  color(255, 200, 255), // t 20
-  color(200, 200, 255), // u 21
-  color(255, 200, 255), // v 22
-  color(200, 200, 255), // w 23
-  color(255, 200, 255), // x 24
-  color(200, 200, 255), // y 25
+  color(150, 150, 255), // a 1
+  color(255, 150, 255), // b 2
+  color(150, 150, 255), // c 3
+  color(255, 150, 255), // d 4
+  color(150, 150, 255), // e 5
+  color(255, 150, 255), // f 6
+  color(150, 255, 150), // g 7
+  color(255, 255, 150), // h 8
+  color(150, 255, 150), // i 9
+  color(255, 150, 255), // j 10
+  color(150, 150, 255), // k 11
+  color(255, 255, 150), // l 12
+  color(150, 255, 255), // m 13
+  color(255, 255, 150), // n 14
+  color(150, 150, 255), // o 15
+  color(255, 150, 255), // p 16
+  color(150, 255, 150), // q 17
+  color(255, 255, 150), // r 18
+  color(150, 255, 150), // s 19
+  color(255, 150, 255), // t 20
+  color(150, 150, 255), // u 21
+  color(255, 150, 255), // v 22
+  color(150, 150, 255), // w 23
+  color(255, 150, 255), // x 24
+  color(150, 150, 255), // y 25
 };
 
 color frameColor = color(50);
@@ -68,12 +68,12 @@ int cursorMemory = 100;
 float cursorVelocity = 30.0;
 
 void setup() {
-  size(920, 920, P3D);
+  size(1380, 1380, P3D);
   background(0);
   frameRate(30);
   smooth(8);
   
-  canvas = createGraphics(920, 920, P3D);
+  canvas = createGraphics(1380, 1380, P3D);
   server = new SyphonServer(this, "Processing Syphon");
   
   initTile();
