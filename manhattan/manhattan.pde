@@ -1,13 +1,12 @@
 import codeanticode.syphon.*;
 import processing.sound.*;
 
-boolean calibration = true;
+boolean calibration = false;
 
 PGraphics canvas;
 SyphonServer server;
 
 SoundFile bgm;
-SoundFile sfx;
 
 int rows = 5;
 int cols = 5;
@@ -109,6 +108,9 @@ class Tile {
   int[] cursorDirections = new int[tiles];
   PVector[] cursorXYs = new PVector[tiles];
   float[][][] cursorHistory = new float[tiles][cursorMemory][2];
+  
+  SoundFile sfx = new SoundFile(manhattan.this, "connection effect.wav");
+  boolean activeSound = false;
 
   Tile(int idInput, PVector xyInput) {
     xy = xyInput;
@@ -144,8 +146,13 @@ class Tile {
       drawTile(x, y, rO, rI, tileEdge);
     } else {
       if (isActivated) {
+        if (!sfx.isPlaying() && !activeSound) {
+          activeSound = true;
+          sfx.play();
+        }
         canvas.stroke(tileColor, tileAlpha);
       } else {
+        activeSound = false;
         canvas.stroke(0, tileDimOut);
       }
       drawTile(x, y, rO, rI, tileEdge);      
@@ -397,9 +404,7 @@ void keyPressed() {
     if (!activeTileKey.hasValue(str(key))) {
       setTileStatus(true);
       activeTileKey.append(str(key));
-      
-      sfx = new SoundFile(this, "connection effect.wav");
-      sfx.play();
+
     }
   }
 }
