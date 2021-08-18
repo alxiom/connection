@@ -357,7 +357,7 @@ class Tile {
 void initTile() {
   for (int i = 0; i < rows; i++) {
     for (int j = 0; j < cols; j++) {
-      int id = i * rows + j;
+      int id = i * cols + j;
       float x = (frameWidth + tileSize) * (j + 0.5);
       float y = (frameWidth + tileSize) * (i + 0.5);
       PVector xy = new PVector(x, y);
