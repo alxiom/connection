@@ -439,8 +439,8 @@ int countActiveTileKey() {
 }
 
 PVector convertXY(int index) {
-  int j = index % rows;
-  int i = index / rows;
+  int j = index % cols;
+  int i = index / cols;
   float x = (tileSize + frameWidth) * (j + 0.5);
   float y = (tileSize + frameWidth) * (i + 0.5);;
   PVector xy = new PVector(x, y);
